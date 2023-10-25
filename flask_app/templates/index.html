@@ -1,0 +1,107 @@
+<!-- Instructions page: This page includes information about the frontend template -->
+
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="row">
+        
+        <!-- Left Rail -->
+        <!-- Menu element-->
+        {% include "menu.html" %}
+
+        <!-- Middle Rail -->
+        <div class="col-9 col-xl-8 col-md-7">
+            <h5 class="display-5 base-margin-top">Organizations Overview</h5>
+            <hr>
+            <!--Build Organization Tabs-->
+            <ul id="bordered" class="tabs tabs--bordered" style="overflow-x: scroll">
+                {% for org in organizations %}
+                    {% if loop.index == 1 %}
+                    <li id="bordered-{{loop.index}}" class="tab active">
+                    {% else %}
+                    <li id="bordered-{{loop.index}}" class="tab">
+                    {% endif %}
+                        <a tabindex="0">{{org.name}}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+
+            <div id="bordered-content" class="tab-content">
+                {% for org_nets in networks %}
+                    {% if loop.index == 1 %}
+                    <div id="bordered-{{loop.index}}-content" class="tab-pane active">
+                    {% else %}
+                    <div id="bordered-{{loop.index}}-content" class="tab-pane">
+                    {% endif %}
+                        <div class="row">
+                            <!-- Middle Rail -->
+                            <div class="col-md-12">
+                                <div class="section">
+                                        <div class="responsive-table">
+                                            <table id="{{loop.index}}-table-header" class="table table--lined" aria-label="Bordered table example">
+                                                <thead>
+                                                    <tr>
+                                                        <th>
+                                                            <label class="checkbox">
+                                                                <input type="checkbox" disabled>
+                                                                <span class="checkbox__input"></span>
+                                                            </label>
+                                                        </th>
+                                                        <th>Network Name</th>
+                                                        <th>Network Device Count</th>
+                                                        <th>Tags</th>
+                                                        <th>Network Type</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="{{network_name}}-table">
+                                                {% for net in org_nets %}
+                                                    <tr>
+                                                        <td class="hidden-md-down"></td>
+                                                        <td>{{net.name}}</td>
+                                                        <td>{{net.device_count}}</td>
+                                                        <td>{{net.tags}}</td>
+                                                        <td>{{net.productTypes}}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                </div>
+                            </div>
+                            <!-- Right Rail -->
+                            <div class="col-md-6">
+                                <div class="section"></div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    <!-- Right Rail -->
+    <div class="col-0 col-xl-2 col-md-2">
+    </div>
+</div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+    const rows = document.querySelectorAll(".clickable-row");
+    rows.forEach((row) => {
+      row.addEventListener("click", () => {
+        const href = row.getAttribute("data-href");
+        if (href) {
+          window.location.href = href;
+        }
+      });
+    });
+  });
+
+  $(document).ready( function () {
+    {% for org_nets in networks %}
+        $('#{{loop.index}}-table-header').DataTable();
+    {% endfor %}
+  });
+
+</script>
+{%  endblock %}

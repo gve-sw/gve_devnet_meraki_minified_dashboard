@@ -1,0 +1,422 @@
+<!-- claim.html -->
+
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+    <!-- Left Rail -->
+    <!-- Menu element-->
+    {% include "menu.html" %}
+
+    <!-- Middle Rail -->
+    <div class="row base-margin-bottom">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <h5 class="display-5 base-margin-top">Update SSID Settings</h5>
+        <hr>
+    </div>
+
+    <!-- Middle Rail -->
+    <div class="row">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <div class="col-9 col-xl-6 col-md-7">
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">Step 1: Select SSID(s) to Update</h2>
+
+                <div class="section">
+                    <div class="responsive-table">
+                        <table class="table table--lined table--wrapped" id="ssidTable">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <label class="checkbox">
+                                            <input type="checkbox" disabled>
+                                            <span class="checkbox__input"></span>
+                                        </label>
+                                    </th>
+                                    <th class="hidden-md-down">Enabled</th>
+                                    <th class="hidden-md-down">Name</th>
+                                    <th class="hidden-md-down">Auth Mode</th>
+                                    <th class="hidden-md-down">Encryption Mode</th>
+                                    <th class="hidden-md-down">Availability Tags</th>
+                                    <th class="hidden-md-down">Client IP Mode</th>
+                                    <th class="hidden-md-down">VLAN Tagging (ID)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ssid in ssids %}
+                                <tr>
+                                    <td>
+                                        <label class="checkbox">
+                                            <input class="device-checkbox" type="checkbox" name="selected_ssids" value="{{ssid['name']}}, ID: {{ssid['number']}}">
+                                            <span class="checkbox__input"></span>
+                                        </label>
+                                    </td>
+                                    <td>
+                                        {% if ssid.enabled == True %}
+                                            <span class="icon-wifi icon-size-20 half-margin-right text-success"></span>
+                                        {% else %}
+                                            <span class="icon-wifi icon-size-20 half-margin-right text-light"></span>
+                                        {% endif %}
+
+                                        <span>{{ ssid.enabled }}</span>
+                                    </td>
+                                    <td class="hidden-md-down">{{ ssid.name }}</td>
+                                    {% if ssid.authMode == '8021x-radius' %}
+                                        <td class="hidden-md-down">{{ ssid.authMode }} ({{ ssid.radiusServers|map(attribute='host')|join(', ') }})</td>
+                                    {% else %}
+                                        <td class="hidden-md-down">{{ ssid.authMode }}</td>
+                                    {% endif %}
+                                    <td class="hidden-md-down">{{ ssid.encryptionMode }}</td>
+                                    {% if ssid.availableOnAllAps == True %}
+                                        <td class="hidden-md-down"></td>
+                                    {% else %}
+                                        <td class="hidden-md-down">{{ ssid.availabilityTags|join(', ') }}</td>
+                                    {% endif %}
+                                    <td class="hidden-md-down">{{ ssid.ipAssignmentMode }}</td>
+                                    {% set combined_tags = [] %}
+
+                                    {% for item in ssid.apTagsAndVlanIds %}
+                                        {% for tag in item.tags %}
+                                            {% set tag_and_vlan = tag ~ " (" ~ item.vlanId ~ ")" %}
+                                            {% set combined_tags = combined_tags.append(tag_and_vlan) %}
+                                        {% endfor %}
+                                    {% endfor %}
+
+                                    <td class="hidden-md-down">{{ combined_tags|join(', ') }}</td>
+
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!--Alert for success message-->
+            {% if success %}
+            <div class="alert alert--success" id="success-alert">
+                <div class="alert__message">Successfully updated SSID(s).</div>
+            </div>
+
+            <script>
+                // Get a reference to the alert element
+                const successAlert = document.getElementById('success-alert');
+
+                // Function to hide the alert after a specified delay (in milliseconds)
+                function hideAlert() { successAlert.style.display = 'none';}
+                successAlert.style.display = 'block';
+
+                // Set a timeout to hide the alert after 3000 milliseconds (3 seconds)
+                setTimeout(hideAlert, 10000); // Adjust the delay as needed
+            </script>
+            {% endif %}
+        </div>
+    </div>
+
+        <!-- Right Rail -->
+        <div class="col-md-4">
+            <div class="section">
+                <div class="panel panel--loose panel--raised base-margin-bottom">
+                    <h2 class="subtitle">Step 2: Update SSID(s)</h2>
+
+                    <form action="/updateSSID?org={{request.args.org}}&net={{request.args.net}}" method="POST" name="envVars">
+                        <!-- Action Dropdown -->
+                        <div class="section">
+                            <div class="form-group base-margin-bottom">
+                                <div class="subheader">SSID State</div>
+                                <div class="form-group form-group--inline base-margin-bottom">
+                                    <label class="radio">
+                                        <input type="radio" checked name="ssid_state" value="enabled">
+                                        <span class="radio__input"></span>
+                                        <span class="radio__label">Enabled</span>
+                                    </label>
+                                </div>
+                                <div class="form-group form-group--inline base-margin-bottom">
+                                    <label class="radio">
+                                        <input type="radio" name="ssid_state" value="disabled">
+                                        <span class="radio__input"></span>
+                                        <span class="radio__label">Disabled</span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group__text">
+                                    <input id="ssid-name" type="text" name="ssid_name">
+                                    <label for="ssid-name">SSID Name</label>
+                                </div>
+                                <div class="form-group__help half-margin-bottom">
+                                    <span>Leave 'Blank' to keep Original Name</span>
+                                </div>
+                                <div class="form-group__text select base-margin-bottom">
+                                    <select id="auth-select" name="auth" onfocus="showOriginalText('Start Demo')">
+                                        <option value="-- Existing --" selected>-- Existing --</option>
+                                        <option value="open" >Open</option>
+                                        <option value="psk">PSK</option>
+                                        <option value="8021x-radius">802.1x with my RADIUS Server</option>
+                                    </select>
+                                    <label for="auth-select">Auth Mode</label>
+                                </div>
+                                <div class="form-group__text base-margin-bottom" id="password-field" style="display:none;">
+                                    <input id="input-type-password" type="password" name="password">
+                                    <label for="input-type-password">SSID Password</label>
+                                </div>
+                                <div class="form-group__text select base-margin-bottom" id="enc-field" style="display:none;">
+                                    <select id="enc-select" name="encryption">
+                                        <option value="wep">WEP</option>
+                                        <option value="wpa">WPA</option>
+                                    </select>
+                                    <label for="enc-select">Auth Mode</label>
+                                </div>
+
+                                <div class="form-group__text select base-margin-bottom" id="radius-field" style="display:none;">
+                                    <select id="radius-select" name="radius-selection">
+                                        {% for radius_server in radius_servers %}
+                                            <option value="{{radius_server.area}}">Area {{radius_server.area}} ({{radius_server.primary_server.host}}, {{radius_server.secondary_server.host}})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <label for="radius-select">Radius Servers (Primary, Secondary)</label>
+                                </div>
+
+                                <div class="form-group__text select base-margin-bottom">
+                                    <select id="availability-select" name="availability" onfocus="showOriginalText('Start Demo')">
+                                        <option value="-- Existing --" selected>-- Existing --</option>
+                                        <option value="all">All APs</option>
+                                        <option value="some">Select APs based on Tags</option>
+                                    </select>
+                                    <label for="availability-select">Availability Mode</label>
+                                </div>
+
+                                <div class="form-group__text base-margin-bottom" id="tag-field" style="display:none;">
+                                    <select data-placeholder="Select Tags" class="chosen-select" id="availability_tags" name="availability_tags" multiple tabindex="4">
+                                        {% for ap_tag in ap_tags %}
+                                            <option value="{{ap_tag}}">{{ap_tag}}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="form-group__text select base-margin-bottom">
+                                    <select id="client-ip-vlan-select" name="client-ip-vlan" onfocus="showOriginalText('Start Demo')">
+                                        <option value="-- Existing --" selected>-- Existing --</option>
+                                        <option value="NAT mode">Meraki AP Assigned (NAT Mode)</option>
+                                        <option value="Bridge mode">External DHCP Server Assigned</option>
+                                    </select>
+                                    <label for="client-ip-vlan-select">Client IP and VLAN</label>
+                                </div>
+
+                                <div class="form-group__text base-margin-bottom" id="vlan-tag-field" style="display:none;">
+                                    <select data-placeholder="VLAN Tagging (VLAN ID) - Default VLAN = {{default_vlan}}" class="chosen-select" id="vlan_tags" name="vlan_tags" multiple tabindex="4"></select>
+                                </div>
+                                <div id="new-vlan-tag-field" style="display:none;">
+                                    <select id="new_vlan_tag" name="new_vlan_tag" class="chosen-select">
+                                        <!-- Populate this drop-down with available VLAN tags -->
+                                           {% for ap_tag in ap_tags %}
+                                            <option value="{{ap_tag}}">{{ap_tag}}</option>
+                                            {% endfor %}
+                                    </select>
+                                    <input type="number" id="new_vlan_number" min="1" max="4094">
+                                    <button id="add_vlan_button" type="button">Add VLAN ID Mapping</button>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- Hidden Org and Network field to pass data from the first form -->
+                        <input type="hidden" name="org" value="{{ request.args.org }}">
+                        <input type="hidden" name="net" value="{{ request.args.net }}">
+
+
+                        <!-- Selected SSIDs List -->
+                        <div class="section">
+                            <h4>Selected SSIDs:</h4>
+                            <ul id="selected-ssids-list"></ul>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="section">
+                            <button class="btn btn-primary" type="submit">Run and Submit</button>
+                        </div>
+
+                        <!--Alert for error message-->
+                        {% if error %}
+                        <div class="alert alert--danger" id="failure-alert">
+                            <span class="icon-attention"></span>
+                            <span class="alert__message">{{ errormessage }}</span>
+                        </div>
+                        {% endif %}
+
+                        <script>
+                            // Get a reference to the alert element
+                            const failureAlert = document.getElementById('failure-alert');
+
+                            // Function to hide the alert after a specified delay (in milliseconds)
+                            function hideAlert() { failureAlert.style.display = 'none';}
+                            failureAlert.style.display = 'block';
+
+                            // Set a timeout to hide the alert
+                            setTimeout(hideAlert, 10000); // Adjust the delay as needed
+                        </script>
+                    </form>
+                </div>
+            </div>
+        </div>
+        </div>
+</div>
+</div>
+
+
+<!-- JavaScript code -->
+<script>
+
+// Function to handle checkbox selection in the middle rail
+function handleCheckboxSelection(checkbox) {
+    const ssidName = checkbox.value;
+    const selectedSSIDsList = document.getElementById('selected-ssids-list');
+    const ssidNameInput = document.getElementById('ssid-name');
+
+    // Get a list of all selected checkboxes
+    const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+
+    if (checkbox.checked) {
+        // Add ssid to the selected ssids list
+        const ssidListItem = document.createElement('li');
+        ssidListItem.textContent = ssidName;
+        ssidListItem.id = `list-item-${ssidName}`; // Set id to ssid name for easy removal
+        selectedSSIDsList.appendChild(ssidListItem);
+    } else {
+        // Remove ssid from the selected ssids list
+        const ssidListItem = document.getElementById(`list-item-${ssidName}`);
+        if (ssidListItem) {
+            selectedSSIDsList.removeChild(ssidListItem);
+        }
+    }
+
+    // Check if more than one checkbox is selected and disable the input field accordingly
+    if (selectedCheckboxes.length > 1) {
+        ssidNameInput.disabled = true;
+    } else {
+        ssidNameInput.disabled = false;
+    }
+}
+
+// Attach event listener to the entire table
+const table = document.querySelector('#ssidTable');
+table.addEventListener('change', function (event) {
+    // Check if the event was triggered by a checkbox
+    if (event.target.classList.contains('device-checkbox')) {
+        handleCheckboxSelection(event.target);
+    }
+});
+
+// Code to collect selected ssid names before form submission
+document.forms.envVars.addEventListener('submit', function (event) {
+    const selectedSSIDsListItems = document.getElementById('selected-ssids-list').children;
+    let selectedSSIDs = [];
+    for (let i = 0; i < selectedSSIDsListItems.length; i++) {
+        selectedSSIDs.push(selectedSSIDsListItems[i].textContent);
+    }
+    // Add a hidden input to the form with the selected ssid names
+    const selectedSSIDsInput = document.createElement('input');
+    selectedSSIDsInput.type = 'hidden';
+    selectedSSIDsInput.name = 'selectedSSIDs';
+    selectedSSIDsInput.value = JSON.stringify(selectedSSIDs);
+    document.forms.envVars.appendChild(selectedSSIDsInput);
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+    // Get references to the select element and the password input element
+    const authSelect = document.getElementById("auth-select");
+    const availabilitySelect = document.getElementById("availability-select");
+    const clientIPVLANSelect = document.getElementById("client-ip-vlan-select");
+
+    const passwordInput = document.getElementById("password-field");
+    const encInput = document.getElementById("enc-field");
+    const tagInput = document.getElementById("tag-field");
+    const radiusInput = document.getElementById("radius-field")
+    const vlanInput = document.getElementById("vlan-tag-field")
+    const newVlanInput = document.getElementById("new-vlan-tag-field")
+
+    // Add an event listener to the select element
+    authSelect.addEventListener("change", function () {
+        // Check if the selected value is "psk"
+        if (authSelect.value === "psk") {
+            // If "PSK" is selected, show the proper input fields
+            passwordInput.style = "";
+            encInput.style = "";
+
+            // Make sure radius fields hidden again (if selecting psk after radius)
+            radiusInput.style = "display:none";
+        } else if (authSelect.value === "8021x-radius") {
+            // If Radius selected, show proper radius server fields
+            radiusInput.style = "";
+
+            // Make sure psk fields hidden again (if selecting radius after psk)
+            passwordInput.style = "display:none";
+            encInput.style = "display:none";
+        } else {
+            // If any other option is selected, hide the proper fields
+            passwordInput.style = "display:none";
+            encInput.style = "display:none";
+            radiusInput.style = "display:none";
+        }
+    });
+
+    availabilitySelect.addEventListener("change", function () {
+        if (availabilitySelect.value === "some") {
+            tagInput.style = ""
+            $("#availability_tags").chosen();
+        } else {
+            // If any other option is selected, hide the proper fields
+            tagInput.style = "display:none";
+        }
+    });
+
+    clientIPVLANSelect.addEventListener("change", function () {
+        if (clientIPVLANSelect.value === "Bridge mode") {
+            vlanInput.style = "";
+            newVlanInput.style = ""
+            $("#vlan_tags").chosen();
+            $("#new_vlan_tag").chosen();
+        } else {
+            // If any other option is selected, hide the proper fields
+            vlanInput.style = "display:none";
+            newVlanInput.style = "display:none";
+        }
+    });
+});
+
+$(document).ready(function () {
+    $('#ssidTable').DataTable({
+        columnDefs: [
+          { orderable: false, searchable: false, targets: [0] }  // Apply custom sorting to columns 1 and 2
+        ]
+    });
+
+    $("#add_vlan_button").on("click", function () {
+        var selectedVlanTag = $("#new_vlan_tag").val();
+        var newVlanNumber = $("#new_vlan_number").val();
+
+        if (selectedVlanTag && newVlanNumber) {
+            // Check if the VLAN tag already exists in the original drop-down
+            var existingOption = $("#vlan_tags option[id='" + selectedVlanTag + "']");
+            if (existingOption.length) {
+                // Update the VLAN number for the existing VLAN tag
+                existingOption.val(selectedVlanTag + " (" + newVlanNumber + ")");
+                existingOption.text(selectedVlanTag + " (" + newVlanNumber + ")");
+            } else {
+                // Add a new option to the original drop-down
+                $("#vlan_tags").append(
+                    $("<option></option>").val(selectedVlanTag + " (" + newVlanNumber + ")").text(selectedVlanTag + " (" + newVlanNumber + ")").attr('id', selectedVlanTag)
+                );
+            }
+
+            $("#vlan_tags").trigger("chosen:updated");
+
+            // Clear input fields
+            $("#new_vlan_tag").val("");
+            $("#new_vlan_number").val("");
+        }
+    });
+});
+
+</script>
+
+{% endblock %}

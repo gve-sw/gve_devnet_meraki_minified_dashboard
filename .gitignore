@@ -1,0 +1,10 @@
+# Environment
+venv
+
+# Sensitive File
+.env
+
+# IDE files
+.idea
+__pycache__
+

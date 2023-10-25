@@ -1,0 +1,211 @@
+<!-- claim.html -->
+
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+
+    <!-- Left Rail -->
+    <!-- Menu element-->
+    {% include "menu.html" %}
+
+    <!-- Middle Rail -->
+    <div class="row base-margin-bottom">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <h5 class="display-5 base-margin-top">Claim Devices</h5>
+        <hr>
+    </div>
+    <div class="row">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <div class="col-9 col-xl-7 col-md-7">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">Step 1: Select Available Inventory Devices</h2>
+
+                <div class="section">
+                    <div class="responsive-table">
+                        <table class="table table--lined table--wrapped" id="deviceTable">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <label class="checkbox">
+                                            <input type="checkbox" disabled>
+                                            <span class="checkbox__input"></span>
+                                        </label>
+                                    </th>
+                                    <th class="hidden-md-down">MAC Address</th>
+                                    <th class="hidden-md-down">Serial Number</th>
+                                    <th class="hidden-md-down">Model</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in devices %}
+                                <tr>
+                                    <td>
+                                        <label class="checkbox">
+                                            <input class="device-checkbox" type="checkbox" name="selected_devices" value="{{device['serial']}}">
+                                            <span class="checkbox__input"></span>
+                                        </label>
+                                    </td>
+                                    <td >
+                                        {% if device.productType == 'appliance' %}
+                                            <span class="icon-router icon-size-20 half-margin-right text-light"></span>
+                                        {% elif device.productType == 'wireless' %}
+                                            <span class="icon-accesspoint icon-size-20 half-margin-right text-light"></span>
+                                        {% elif device.productType == 'switch' %}
+                                            <span class="icon-switch icon-size-20 half-margin-right text-light"></span>
+                                        {% elif device.productType == 'camera' %}
+                                            <span class="icon-camera icon-size-20 half-margin-right text-light"></span>
+                                        {% else %}
+                                            <span class="icon-question-circle icon-size-20 half-margin-right text-light"></span>
+                                        {% endif %}
+                                        <span>{{ device.mac }}</span>
+                                    </td>
+                                    <td class="hidden-md-down">{{ device.serial }}</td>
+                                    <td class="hidden-md-down">{{ device.model }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <!--Alert for success message-->
+                {% if success %}
+                <div class="alert alert--success" id="success-alert">
+                    <div class="alert__message">Successfully updated AP(s).</div>
+                </div>
+
+                <script>
+                    // Get a reference to the alert element
+                    const successAlert = document.getElementById('success-alert');
+
+                    // Function to hide the alert after a specified delay (in milliseconds)
+                    function hideAlert() { successAlert.style.display = 'none';}
+                    successAlert.style.display = 'block';
+
+                    // Set a timeout to hide the alert after 3000 milliseconds (3 seconds)
+                    setTimeout(hideAlert, 10000); // Adjust the delay as needed
+                </script>
+                {% endif %}
+
+            </div>
+        </div>
+
+    <!-- Right Rail -->
+    <div class="col-9 col-xl-3 col-md-7">
+        <div class="panel panel--loose panel--raised base-margin-bottom">
+                    <h2 class="subtitle">Step 2: Claim Devices into Network</h2>
+                    <div class="section">
+
+                    <form action="/claim?org={{request.args.org}}&net={{request.args.net}}" method="POST" name="envVars">
+                        <!-- Action Dropdown -->
+                        <div class="section">
+                            <div class="form-group base-margin-bottom">
+                                <div class="form-group__text select">
+                                    <select name="action" id="action-select" onfocus="showOriginalText('Start Demo')">
+                                        <option value="claim">Claim</option>
+                                    </select>
+                                    <label for="action-select">Action</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden Org and Network field to pass data from the first form -->
+                        <input type="hidden" name="org" value="{{ request.args.org}}">
+                        <input type="hidden" name="net" value="{{ request.args.net }}">
+
+
+                        <!-- Selected Devices List -->
+                        <div class="section">
+                            <h4>Selected Devices:</h4>
+                            <ul id="selected-devices-list"></ul>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="section">
+                            <button class="btn btn-primary" type="submit">Run and Submit</button>
+                        </div>
+
+                        <!--Alert for error message-->
+                        {% if error %}
+                        <div class="alert alert--danger" id="failure-alert">
+                            <span class="icon-attention"></span>
+                            <span class="alert__message">{{ errormessage }}</span>
+                        </div>
+                        {% endif %}
+                        <script>
+                            // Get a reference to the alert element
+                            const failureAlert = document.getElementById('failure-alert');
+
+                            // Function to hide the alert after a specified delay (in milliseconds)
+                            function hideAlert() { failureAlert.style.display = 'none';}
+                            failureAlert.style.display = 'block';
+
+                            // Set a timeout to hide the alert
+                            setTimeout(hideAlert, 10000); // Adjust the delay as needed
+                        </script>
+                    </form>
+                </div>
+            </div>
+    </div>
+    </div>
+</div>
+
+
+
+<!-- JavaScript code -->
+<script>
+// Function to handle checkbox selection in the middle rail
+function handleCheckboxSelection(checkbox) {
+    const deviceName = checkbox.value;
+    const selectedDevicesList = document.getElementById('selected-devices-list');
+
+    if (checkbox.checked) {
+        // Add device to the selected devices list
+        const deviceListItem = document.createElement('li');
+        deviceListItem.textContent = deviceName;
+        deviceListItem.id = `list-item-${deviceName}`; // Set id to device name for easy removal
+        selectedDevicesList.appendChild(deviceListItem);
+    } else {
+        // Remove device from the selected devices list
+        const deviceListItem = document.getElementById(`list-item-${deviceName}`);
+        if (deviceListItem) {
+            selectedDevicesList.removeChild(deviceListItem);
+        }
+    }
+}
+
+// Attach event listener to the entire table
+const table = document.querySelector('#deviceTable');
+table.addEventListener('change', function (event) {
+    // Check if the event was triggered by a checkbox
+    if (event.target.classList.contains('device-checkbox')) {
+        handleCheckboxSelection(event.target);
+    }
+});
+
+// Code to collect selected device names before form submission
+document.forms.envVars.addEventListener('submit', function (event) {
+    const selectedDevicesListItems = document.getElementById('selected-devices-list').children;
+    let selectedDevices = [];
+    for (let i = 0; i < selectedDevicesListItems.length; i++) {
+        selectedDevices.push(selectedDevicesListItems[i].textContent);
+    }
+    // Add a hidden input to the form with the selected device names
+    const selectedDevicesInput = document.createElement('input');
+    selectedDevicesInput.type = 'hidden';
+    selectedDevicesInput.name = 'selectedDevices';
+    selectedDevicesInput.value = JSON.stringify(selectedDevices);
+    document.forms.envVars.appendChild(selectedDevicesInput);
+});
+
+$(document).ready( function () {
+    $('#deviceTable').DataTable({
+        columnDefs: [
+          { orderable: false, searchable: false, targets: [0] }
+        ]
+    });
+} );
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,112 @@
+<!-- Template Helper: sidebar, which can be used in different pages-->
+<!--CUSTOMIZE: Build menu structure as needed-->
+<nav class="col-3 col-xl-2 col-md-3 sidebar dbl-margin-top" role="navigation">
+    <ul id="rootSidebar">
+        <div class="col-xl-12 col-md-4">
+            <!-- Organization and Network Select Form -->
+            <div class="form-group base-margin-bottom">
+                <div class="form-group__text select">
+                    <select name="organizations_select" id="organizations_select" required>
+                        <option disabled selected hidden value="">Please choose...</option>
+                        {% for orga in dropdown_content %}
+                        <option value="{{ orga.orgaid }}" {% if selected_elements.organization == orga.orgaid %} selected {% endif %}>
+                            {{ orga.organame }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <label for="organizations_select" style="color: white;">Organization*</label>
+                </div>
+            </div>
+
+           {% for orga in dropdown_content %}
+            <div id="{{ orga.orgaid }}" class="network-select" {% if selected_elements.organization != orga.orgaid %} hidden {% endif %}>
+                <div class="form-group base-margin-bottom">
+                    <div class="form-group__text select">
+                        <select name="networks_select" class="networks" id="networks_select-{{orga.orgaid}}">
+                            <option disabled selected hidden value="">Please choose...</option>
+                            {% for network in orga.networks %}
+                            <option value="{{ network.networkid }}" {% if selected_elements.network_id == network.networkid %} selected {% endif %}>
+                                {{ network.networkname }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <label for="networks_select-{{orga.orgaid}}" style="color: white;">Network*</label>
+                    </div>
+                </div>
+
+                <li class="divider "></li>
+                <li class="sidebar__drawer ">
+                    <a tabindex="2" title="Template Pages">
+                        <span>Network Wide</span>
+                    </a>
+                    <ul>
+                        <!-- Add Claim device to sidebar -->
+                        <li class="sidebar__item">
+                            <a href="#" onclick="handleClick('devices');" tabindex="0" title="Assets">
+                                <span class="icon-devices"></span>
+                                <span>Devices</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="sidebar__drawer ">
+                    <a tabindex="2" title="Template Pages">
+                        <span>Wireless</span>
+                    </a>
+                    <ul>
+                        <!-- Add updateSSID to sidebar -->
+                        <li class="sidebar__item">
+                            <a href="#" onclick="handleClick('updateSSID');" tabindex="0" title="Update SSID">
+                                <span class="icon-wifi"></span>
+                                <span>SSID</span>
+                            </a>
+                        </li>
+
+
+                        <!-- Add AP to sidebar -->
+                        <li class="sidebar__item">
+                            <a href="#" onclick="handleClick('accessPoint');"tabindex="0" title="AccessPoint">
+                                <span class="icon-accesspoint"></span>
+                                <span>Access Point</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="sidebar__drawer ">
+                    <a tabindex="2" title="Template Pages">
+                        <span>Organization</span>
+                    </a>
+                    <ul>
+                        <!-- Add Claim device to sidebar -->
+                        <li class="sidebar__item">
+                            <a href="#" onclick="handleClick('claim');" tabindex="0" title="Assets">
+                                <span class="icon-cog"></span>
+                                <span>Claim Devices</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </div>
+            {% endfor %}
+        </div>
+    </ul>
+
+    <script>
+
+    function handleClick(menu_option) {
+        var orgValue = document.getElementById('organizations_select').value;
+        var netValue = document.getElementById(`networks_select-${orgValue}`).value;
+        console.log(netValue)
+
+        // Construct the URL
+        var url = `/${menu_option}?org=${orgValue}&net=${netValue}`;
+
+        // Redirect to the constructed URL
+        if (netValue != "") {
+            window.location.href = url;
+        }
+    }
+
+    </script>
+</nav>
+<!--CUSTOMIZE END-->

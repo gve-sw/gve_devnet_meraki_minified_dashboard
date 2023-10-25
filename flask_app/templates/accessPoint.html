@@ -1,0 +1,287 @@
+<!-- accessPoint.html -->
+
+{% extends "masterPage.html" %}
+
+{% block content %}
+<div class="container-fluid base-margin-top">
+    <!-- Left Rail -->
+    <!-- Menu element-->
+    {% include "menu.html" %}
+
+    <!-- Middle Rail -->
+    <div class="row base-margin-bottom">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <h5 class="display-5 base-margin-top">Modify Access Point Configuration</h5>
+        <hr>
+    </div>
+
+    <!-- Middle Rail -->
+    <div class="row">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <div class="col-9 col-xl-6 col-md-7">
+            <div class="section">
+                <div class="panel panel--loose panel--raised base-margin-bottom">
+                    <h2 class="subtitle">Step 1: Select Access Point</h2>
+                    <div class="section">
+                        <div class="responsive-table">
+                            <table class="table table--lined table--wrapped" id="apDeviceTable">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            <label class="checkbox">
+                                                <input class="select-all-checkbox" type="checkbox" disabled>
+                                                <span class="checkbox__input"></span>
+                                            </label>
+                                        </th>
+                                        <th class="hidden-md-down">Device Name</th> <!-- Updated Header -->
+                                        <th class="hidden-md-down">Serial Number</th>
+                                        <th class="hidden-md-down">Model</th>
+                                        <th class="hidden-md-down">Tags</th>
+                                        <th class="hidden-md-down">RF Profile</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for device in devices %}
+                                    <tr>
+                                        <td>
+                                            <label class="checkbox">
+                                                <input class="device-checkbox" type="checkbox" name="selected_devices" value="{{device['serial']}}">
+                                                <span class="checkbox__input"></span>
+                                            </label>
+                                        </td>
+                                        <td>
+                                            {% if device.status == 'online' %}
+                                                {% set device_status = 'text-success' %}
+                                            {% elif device.status == 'offline' %}
+                                                {% set device_status = 'text-danger' %}
+                                            {% elif device.status == 'alerting' %}
+                                                {% set device_status = 'text-warning' %}
+                                            {% else %}
+                                                {% set device_status = 'text-light' %}
+                                            {% endif %}
+
+                                            <span class="icon-accesspoint-outline icon-size-20 half-margin-right {{device_status}}"></span>
+                                            <span>{{ device.name }}</span> <!-- Display device name here -->
+                                        </td>
+                                        <td class="hidden-md-down">{{ device.serial }}</td>
+                                        <td class="hidden-md-down">{{ device.model }}</td>
+                                        <td class="hidden-md-down">{{ device.tags }}</td>
+                                        <td class="hidden-md-down">{{ device.rf_profile_name }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!--Alert for success message-->
+                {% if success %}
+                <div class="alert alert--success" id="success-alert">
+                    <div class="alert__message">Successfully claimed device(s).</div>
+                </div>
+
+                <script>
+                    // Get a reference to the alert element
+                    const successAlert = document.getElementById('success-alert');
+
+                    // Function to hide the alert after a specified delay (in milliseconds)
+                    function hideAlert() { successAlert.style.display = 'none';}
+                    successAlert.style.display = 'block';
+
+                    // Set a timeout to hide the alert after 3000 milliseconds (3 seconds)
+                    setTimeout(hideAlert, 10000); // Adjust the delay as needed
+                </script>
+                {% endif %}
+
+            </div>
+        </div>
+
+
+    <!-- Right Rail -->
+    <div class="col-md-4">
+        <div class="section">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <h2 class="subtitle">Step 2: Modify Configuration</h2>
+
+                <form action="/accessPoint?org={{request.args.org}}&net={{request.args.net}}" method="POST" name="envVars">
+                    <div class="section">
+                        <div class="form-group base-margin-bottom">
+                            <!-- New Fields to Edit Device -->
+                            <div class="form-group base-margin-bottom">
+                                <div class="form-group__text">
+                                    <input type="text" name="device_name" id="device_name">
+                                    <label for="device_name">AP Name</label>
+                                </div>
+                            </div>
+                            <div class="form-group base-margin-bottom">
+                                <div class="form-group__text base-margin-bottom" id="ap-tag-field">
+                                    <select data-placeholder="AP Tag" class="chosen-select" id="ap_tags" name="ap_tags" multiple tabindex="4">
+                                    {% for ap_tag in ap_tags %}
+                                        <option value="{{ap_tag}}" id="{{ap_tag}}">{{ap_tag}}</option>
+                                    {% endfor %}
+                                    </select>
+                                </div>
+                                <input type="text" id="new_tag" oninput="validateTag(this)">
+                                <button id="add_tag_button" type="button">Add New Tag</button>
+                                <div class="form-group__help text-left">
+                                    <span>Hint: create a new tag, then select from the dropdown!</span>
+                                </div>
+                            </div>
+                            <div class="form-group__text select base-margin-bottom">
+                                <select id="rf-profile-select" name="rf_profile" onfocus="showOriginalText('Start Demo')">
+                                    <option value="-- Existing --" selected>-- Existing --</option>
+                                    <option value="Basic Profile (Indoor/Outdoor)">Basic Profile (Indoor/Outdoor)</option>
+                                        {% for profile in rf_profile_names %}
+                                        <option value="{{profile}}">{{profile}}</option>
+                                        {% endfor %}
+                                </select>
+                                <label for="rf-profile-select">RF Profile</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden Org and Network field to pass data from the first form -->
+                    <input type="hidden" name="org" value="{{ request.args.org }}">
+                    <input type="hidden" name="net" value="{{ request.args.net }}">
+                    
+                    <!-- Selected Devices List -->
+                    <div class="section">
+                        <h4>Selected Devices:</h4>
+                        <ul id="selected-devices-list"></ul>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="section">
+                        <button class="btn btn-primary" type="submit">Run and Submit</button>
+                    </div>
+
+                    <!--Alert for error message-->
+                    {% if error %}
+                    <div class="alert alert--danger" id="failure-alert">
+                        <span class="icon-attention"></span>
+                        <span class="alert__message">{{ errormessage }}</span>
+                    </div>
+                    {% endif %}
+                    <script>
+                        // Get a reference to the alert element
+                        const failureAlert = document.getElementById('failure-alert');
+
+                        // Function to hide the alert after a specified delay (in milliseconds)
+                        function hideAlert() { failureAlert.style.display = 'none';}
+                        failureAlert.style.display = 'block';
+
+                        // Set a timeout to hide the alert
+                        setTimeout(hideAlert, 10000); // Adjust the delay as needed
+                    </script>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+</div>
+</div>
+
+<!-- JavaScript code -->
+<script>
+    // Validate Tag
+    function validateTag(inputElement) {
+        // Get the input value
+        let inputValue = inputElement.value;
+
+        // Replace spaces with hyphens
+        let replacedValue = inputValue.replace(/ /g, '-');
+
+        // Update the input value with hyphens
+        inputElement.value = replacedValue;
+    }
+
+    // Function to handle checkbox selection in the middle rail
+    function handleCheckboxSelection(checkbox) {
+        const deviceSerial = checkbox.value;  // Get the serial number from the checkbox value
+        const selectedDevicesList = document.getElementById('selected-devices-list');
+        const deviceNameInput = document.getElementById('device_name');
+
+        // Get a list of all selected checkboxes
+        const selectedCheckboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+
+        if (checkbox.checked) {
+            // Add device to the selected devices list using its serial number
+            const deviceListItem = document.createElement('li');
+            deviceListItem.textContent = deviceSerial; // Display the serial number
+            deviceListItem.id = `list-item-${deviceSerial}`; // Set id using the serial number for easy removal
+            selectedDevicesList.appendChild(deviceListItem);
+        } else {
+            // Remove device from the selected devices list
+            const deviceListItem = document.getElementById(`list-item-${deviceSerial}`);
+            if (deviceListItem) {
+                selectedDevicesList.removeChild(deviceListItem);
+            }
+        }
+
+        // Check if more than one checkbox is selected and disable the input field accordingly
+        if (selectedCheckboxes.length > 1) {
+            deviceNameInput.disabled = true;
+        } else {
+            deviceNameInput.disabled = false;
+        }
+    }
+    
+    // Attach event listener to the entire table
+    const table = document.querySelector('#apDeviceTable');
+    table.addEventListener('change', function (event) {
+        // Check if the event was triggered by a checkbox
+        if (event.target.classList.contains('device-checkbox')) {
+            handleCheckboxSelection(event.target);
+        }
+    });
+
+    // Code to collect selected device serial numbers before form submission
+    document.forms.envVars.addEventListener('submit', function (event) {
+        const selectedDevicesListItems = document.getElementById('selected-devices-list').children;
+        let selectedDevices = [];
+        for (let i = 0; i < selectedDevicesListItems.length; i++) {
+            selectedDevices.push(selectedDevicesListItems[i].textContent);
+        }
+        // Add a hidden input to the form with the selected device serial numbers
+        const selectedDevicesInput = document.createElement('input');
+        selectedDevicesInput.type = 'hidden';
+        selectedDevicesInput.name = 'selectedDevices';
+        selectedDevicesInput.value = JSON.stringify(selectedDevices);
+        document.forms.envVars.appendChild(selectedDevicesInput);
+    });
+
+    $(document).ready( function () {
+        $('#apDeviceTable').DataTable({
+            columnDefs: [
+              { orderable: false, searchable: false, targets: [0] }  // Apply custom sorting to columns 1 and 2
+            ]
+        });
+        $("#ap_tags").chosen();
+    } );
+
+    $("#add_tag_button").on("click", function () {
+        var newTag = $("#new_tag").val();
+
+        if (newTag) {
+            // Check if the VLAN tag already exists in the original drop-down
+            var existingOption = $("#ap_tags option[id='" + newTag + "']");
+            if (existingOption.length) {
+            } else {
+                // Add a new option to the original drop-down
+                $("#ap_tags").append(
+                    $("<option></option>").val(newTag).text(newTag).attr('id', newTag)
+                );
+            }
+
+            $("#ap_tags").trigger("chosen:updated");
+
+            // Clear input fields
+            $("#ap_tags").val("");
+            $("#new_tag").val("");
+        }
+    });
+    </script>
+    
+
+{% endblock %}

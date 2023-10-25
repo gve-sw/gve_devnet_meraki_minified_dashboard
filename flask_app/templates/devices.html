@@ -1,0 +1,83 @@
+{% extends "masterPage.html" %}
+
+{% block content %}
+    <!-- Left Rail -->
+    <!-- Menu element-->
+    {% include "menu.html" %}
+
+    <!-- Middle Rail-->
+    <div class="row base-margin-bottom">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <h5 class="display-5 base-margin-top">Device List</h5>
+        <hr>
+    </div>
+    <div class="row">
+        <div class="class=col-3 col-xl-2 col-md-3"></div>
+        <div class="col-9 col-xl-7 col-md-7">
+            <div class="panel panel--loose panel--raised base-margin-bottom">
+                <div class="section">
+                    <div class="responsive-table">
+                        <table class="table table--lined table--wrapped" id="deviceTable">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <label class="checkbox">
+                                            <input type="checkbox" disabled>
+                                            <span class="checkbox__input"></span>
+                                        </label>
+                                    </th>
+                                    <th class="hidden-md-down">MAC Address</th>
+                                    <th class="hidden-md-down">Serial Number</th>
+                                    <th class="hidden-md-down">Model</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for device in devices %}
+                                <tr>
+                                    <td class="hidden-md-down"></td>
+                                    {% if device.status == 'online' %}
+                                        {% set device_status = 'text-success' %}
+                                    {% elif device.status == 'offline' %}
+                                        {% set device_status = 'text-danger' %}
+                                    {% elif device.status == 'alerting' %}
+                                        {% set device_status = 'text-warning' %}
+                                    {% else %}
+                                        {% set device_status = 'text-light' %}
+                                    {% endif %}
+
+                                    <td >
+                                        {% if 'MX' in device.model %}
+                                            <span class="icon-router icon-size-20 half-margin-right {{device_status}}"></span>
+                                        {% elif 'MR' in device.model %}
+                                            <span class="icon-accesspoint icon-size-20 half-margin-right {{device_status}}"></span>
+                                        {% elif 'MS' in device.model %}
+                                            <span class="icon-switch icon-size-20 half-margin-right {{device_status}}"></span>
+                                        {% elif 'MV' in device.model %}
+                                            <span class="icon-camera icon-size-20 half-margin-right {{device_status}}"></span>
+                                        {% else %}
+                                            <span class="icon-question-circle icon-size-20 half-margin-right {{device_status}}"></span>
+                                        {% endif %}
+                                        <span>{{ device.mac }}</span>
+                                    </td>
+                                    <td class="hidden-md-down">{{ device.serial }}</td>
+                                    <td class="hidden-md-down">{{ device.model }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    $(document).ready( function () {
+    $('#deviceTable').DataTable({
+        columnDefs: [
+          { orderable: false, searchable: false, targets: [0] }
+        ]
+        });
+    } );
+</script>
+{%  endblock %}
