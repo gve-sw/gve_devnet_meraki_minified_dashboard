@@ -56,13 +56,13 @@ DEFAULT_VLAN = 0
   {
     "area": 1,
     "primary_server": {
-      "host": "10.0.0.3",
+      "host": "10.X.X.3",
       "port": 3000,
       "secret": "some-secret",
       "radsecEnabled": false
     },
     "secondary_server": {
-      "host": "10.0.0.5",
+      "host": "10.X.X.5",
       "port": 3000,
       "secret": "another-secret",
       "radsecEnabled": false

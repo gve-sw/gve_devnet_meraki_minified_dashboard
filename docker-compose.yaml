@@ -5,9 +5,9 @@ services:
     container_name: contractor_portal
     build: ./flask_app
     ports:
-      - 5000:5000
+      - "5000:5000"
     environment:
       - MERAKI_API_KEY=${MERAKI_API_KEY}
     volumes:
-      - ./flask_app:/app
+      - ./flask_app/logs:/app/logs
     restart: "always"

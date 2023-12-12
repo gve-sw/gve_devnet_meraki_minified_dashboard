@@ -66,6 +66,24 @@
                             </tbody>
                         </table>
                     </div>
+                    <!--Alert for error message-->
+                    {% if error %}
+                    <div class="alert alert--danger" id="failure-alert">
+                        <span class="icon-attention"></span>
+                        <span class="alert__message">{{ errormessage }}</span>
+                    </div>
+                    {% endif %}
+                    <script>
+                        // Get a reference to the alert element
+                        const failureAlert = document.getElementById('failure-alert');
+
+                        // Function to hide the alert after a specified delay (in milliseconds)
+                        function hideAlert() { failureAlert.style.display = 'none';}
+                        failureAlert.style.display = 'block';
+
+                        // Set a timeout to hide the alert
+                        setTimeout(hideAlert, 10000); // Adjust the delay as needed
+                    </script>
                 </div>
             </div>
         </div>

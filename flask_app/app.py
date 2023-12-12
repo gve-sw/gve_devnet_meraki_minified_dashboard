@@ -20,16 +20,17 @@ __license__ = "Cisco Sample Code License, Version 1.1"
 # Import Section
 import datetime
 import json
+import logging
 import os
 import pprint
 import re
-import logging
 from logging.handlers import TimedRotatingFileHandler
 
 import meraki
 import requests
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, url_for, redirect
+from flask_caching import Cache
 
 import config
 
@@ -71,27 +72,39 @@ logger.addHandler(stream_handler)
 
 pp = pprint.PrettyPrinter(indent=4)
 
-# One time actions
-ORGANIZATIONS = dashboard.organizations.getOrganizations()
-
 # Load in RADIUS servers for SSIDs
 with open(config.RADIUS_SERVERS, 'r') as fp:
     RADIUS_SERVERS = json.load(fp)
 
-# Build drop down menus for organization and network selection (the available options in the left hand menu bar)
-DROPDOWN_CONTENT = []
-for organization in ORGANIZATIONS:
-    org_data = {'orgaid': organization['id'], 'organame': organization['name']}
-    try:
-        networks = dashboard.organizations.getOrganizationNetworks(organization['id'])
-        network_data = [{'networkid': network['id'], 'networkname': network['name']} for network in networks]
-        org_data['networks'] = network_data
-        DROPDOWN_CONTENT.append(org_data)
-    except Exception as e:
-        logger.error(f"Error retrieving networks for organization ID {organization['id']}: {e}")
+# Configuring Flask-Caching
+cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 
 # Methods
+@cache.memoize(timeout=120)  # Cache the result for 2 minutes
+def dropdown():
+    """
+    Return Drop Down Content (wrapped in method to support new networks and organizations) - cached
+    :return: A list of orgs and the corresponding networks
+    """
+    dropdown_content = []
+
+    organizations = dashboard.organizations.getOrganizations()
+
+    # Build drop down menus for organization and network selection (the available options in the left hand menu bar)
+    for organization in organizations:
+        org_data = {'orgaid': organization['id'], 'organame': organization['name']}
+        try:
+            networks = dashboard.organizations.getOrganizationNetworks(organization['id'], total_pages='all')
+            network_data = [{'networkid': network['id'], 'networkname': network['name']} for network in networks]
+            org_data['networks'] = network_data
+            dropdown_content.append(org_data)
+        except Exception as e:
+            logger.error(f"Error retrieving networks for organization ID {organization['id']}: {e}")
+
+    return dropdown_content
+
+
 def getSystemTimeAndLocation():
     """
     Return location and time of accessing device (used on all webpage footers)
@@ -122,7 +135,7 @@ def index():
     Main landing page, displays org summary and high level network information tables populated with the latest data.
     :return: Renders index.html
     """
-    error_code = None
+    dropdown_content = dropdown()
 
     selected_organization = request.form.get('organizations_select')
     selected_network = request.form.get('networks_select')
@@ -139,20 +152,19 @@ def index():
     # Build list of networks/orgs (for display)
     network_displays = []
     org_displays = []
-    for org in ORGANIZATIONS:
+    for org in dropdown_content:
         try:
             # Get a list of org networks
-            networks = dashboard.organizations.getOrganizationNetworks(org['id'], total_pages='all')
+            networks = dashboard.organizations.getOrganizationNetworks(org['orgaid'], total_pages='all')
         except Exception as e:
-            error_code = e
-            print(error_code)
+            logger.error(f"Error retrieving networks for organization ID {org['orgaid']}: {e}")
             continue
 
         # Populate org dictionary with org data from Meraki
         org_displays.append(org)
 
         # Get Device Count for each network
-        org_devices = dashboard.organizations.getOrganizationDevices(org['id'], total_pages='all')
+        org_devices = dashboard.organizations.getOrganizationDevices(org['orgaid'], total_pages='all')
         network_device_counts = {}
         for item in org_devices:
             network_id = item["networkId"]
@@ -187,9 +199,9 @@ def index():
         network_displays.append(org_networks)
 
     # Render page
-    return render_template('index.html', hiddenLinks=False, dropdown_content=DROPDOWN_CONTENT,
+    return render_template('index.html', hiddenLinks=False, dropdown_content=dropdown_content,
                            selected_elements=selected_elements, timeAndLocation=getSystemTimeAndLocation(),
-                           organizations=org_displays, networks=network_displays, errorcode=error_code)
+                           organizations=org_displays, networks=network_displays)
 
 
 @app.route('/devices', methods=['GET', 'POST'])
@@ -198,41 +210,49 @@ def devices():
     Devices Page, displays information about network devices (model, online status, etc.)
     :return:  Renders devices.html
     """
-    # Gather selected network and org from URL params
-    selected_organization = request.args.get('org')
-    selected_network = request.args.get('net')
+    dropdown_content = dropdown()
 
-    logger.info('Devices Page Request')
-    logger.info("Selected Organization: %s", selected_organization)
-    logger.info("Selected Network: %s", selected_network)
+    try:
+        # Gather selected network and org from URL params
+        selected_organization = request.args.get('org')
+        selected_network = request.args.get('net')
 
-    selected_elements = {
-        'organization': selected_organization,
-        'network_id': selected_network
-    }
+        logger.info('Devices Page Request')
+        logger.info("Selected Organization: %s", selected_organization)
+        logger.info("Selected Network: %s", selected_network)
 
-    # Sanity check, we should never be in sub-pages without org and network selected
-    if selected_organization is None or selected_network is None:
-        return redirect(url_for('index'))
+        selected_elements = {
+            'organization': selected_organization,
+            'network_id': selected_network
+        }
 
-    # Get device list for network
-    devices = dashboard.networks.getNetworkDevices(selected_elements['network_id'])
-    logger.info(f"Devices API Response: {devices}")
+        # Sanity check, we should never be in sub-pages without org and network selected
+        if selected_organization is None or selected_network is None:
+            return redirect(url_for('index'))
 
-    # Get Device network statuses, set status field in devices list
-    statuses = dashboard.organizations.getOrganizationDevicesStatuses(selected_organization, total_pages='all',
-                                                                      networkIds=[selected_network])
-    device_status = {}
-    for status in statuses:
-        device_status[status['name']] = status['status']
+        # Get device list for network
+        devices = dashboard.networks.getNetworkDevices(selected_elements['network_id'])
+        logger.info(f"Devices API Response: {devices}")
 
-    for device in devices:
-        device['status'] = device_status[device['name']]
+        # Get Device network statuses, set status field in devices list
+        statuses = dashboard.organizations.getOrganizationDevicesStatuses(selected_organization, total_pages='all',
+                                                                          networkIds=[selected_network])
+        device_status = {}
+        for status in statuses:
+            device_status[status['name']] = status['status']
 
-    return render_template('devices.html', hiddenLinks=False, devices=devices,
-                           selected_elements=selected_elements, dropdown_content=DROPDOWN_CONTENT,
-                           timeAndLocation=getSystemTimeAndLocation(), error=True, errormessage="",
-                           errorcode=200)
+        for device in devices:
+            device['status'] = device_status[device['name']]
+
+        return render_template('devices.html', hiddenLinks=False, devices=devices,
+                               selected_elements=selected_elements, dropdown_content=dropdown_content,
+                               timeAndLocation=getSystemTimeAndLocation(), error=False)
+    except Exception as e:
+        logger.error(f"Exception raised: {str(e)}")
+        return render_template('devices.html', hiddenLinks=False, devices=[],
+                               selected_elements=selected_elements, dropdown_content=dropdown_content,
+                               timeAndLocation=getSystemTimeAndLocation(), error=True, errormessage="Error: {}".format(e))
+
 
 
 @app.route('/claim', methods=['GET', 'POST'])
@@ -241,6 +261,8 @@ def claim():
     Claim devices into a network, select from unclaimed devices in the inventory.
     :return: renders claim.html
     """
+    dropdown_content = dropdown()
+
     try:
         # Gather selected network and org from URL params
         selected_organization = request.args.get('org')
@@ -292,12 +314,12 @@ def claim():
                     return redirect(url_for('claim', org=selected_organization, net=selected_network, success=True))
 
         return render_template('claim.html', hiddenLinks=False,
-                               selected_elements=selected_elements, devices=devices, dropdown_content=DROPDOWN_CONTENT,
+                               selected_elements=selected_elements, devices=devices, dropdown_content=dropdown_content,
                                timeAndLocation=getSystemTimeAndLocation(), error=False, success=success)
 
     except Exception as e:
         logger.error(f"Exception raised: {str(e)}")
-        return render_template('claim.html', hiddenLinks=False, dropdown_content=DROPDOWN_CONTENT,
+        return render_template('claim.html', hiddenLinks=False, dropdown_content=dropdown_content,
                                selected_elements=selected_elements, devices=devices, error=True, success=False,
                                errormessage="Error: {}".format(e), timeAndLocation=getSystemTimeAndLocation())
 
@@ -309,6 +331,8 @@ def ssid():
     SSIDs
     :return: render ssidUpdate.html
     """
+    dropdown_content = dropdown()
+
     try:
         # Get the selected organization and network from the frontend form (or args if redirect)
         if request.args.get('org') and request.args.get('net'):
@@ -466,13 +490,13 @@ def ssid():
                 return redirect(url_for('ssid', org=selected_organization, net=selected_network, success=True))
 
         return render_template('ssidUpdate.html', hiddenLinks=False,
-                               selected_elements=selected_elements, dropdown_content=DROPDOWN_CONTENT, ssids=ssids,
+                               selected_elements=selected_elements, dropdown_content=dropdown_content, ssids=ssids,
                                ap_tags=ap_tags, radius_servers=RADIUS_SERVERS, default_vlan=config.DEFAULT_VLAN,
                                timeAndLocation=getSystemTimeAndLocation(), error=False, success=success)
     except Exception as e:
         logger.error(f"Exception raised: {str(e)}")
         return render_template('ssidUpdate.html', hiddenLinks=False,
-                               selected_elements=selected_elements, dropdown_content=DROPDOWN_CONTENT, ssids=ssids,
+                               selected_elements=selected_elements, dropdown_content=dropdown_content, ssids=ssids,
                                ap_tags=ap_tags, radius_servers=RADIUS_SERVERS, default_vlan=config.DEFAULT_VLAN,
                                timeAndLocation=getSystemTimeAndLocation(), error=True,
                                errormessage="Error: {}".format(e), success=False)
@@ -484,6 +508,8 @@ def access_point():
     Update an AP in a wireless network, change name, tags, rf_profile, etc. Display current list of APs in network
     :return: render accessPoint.html
     """
+    dropdown_content = dropdown()
+
     try:
         # Get the selected organization and network from the frontend form (or args if redirect)
         if request.args.get('org') and request.args.get('net'):
@@ -627,7 +653,7 @@ def access_point():
         # Render the AccessPoint.html template with the required data.
         return render_template('accessPoint.html', hiddenLinks=False,
                                selected_elements=selected_elements, devices=access_points, ap_tags=ap_tags,
-                               rf_profile_names=sorted(rf_profile_names), dropdown_content=DROPDOWN_CONTENT,
+                               rf_profile_names=sorted(rf_profile_names), dropdown_content=dropdown_content,
                                timeAndLocation=getSystemTimeAndLocation(), error=False, success=success)
     except Exception as e:
         # Render the AccessPoint.html template with the required data (on error, error written to file, no need to
@@ -635,7 +661,7 @@ def access_point():
         logger.error(f"Exception raised: {str(e)}")
         return render_template('accessPoint.html', hiddenLinks=False,
                                selected_elements=selected_elements, devices=access_points, ap_tags=ap_tags,
-                               rf_profile_names=sorted(rf_profile_names), dropdown_content=DROPDOWN_CONTENT,
+                               rf_profile_names=sorted(rf_profile_names), dropdown_content=dropdown_content,
                                timeAndLocation=getSystemTimeAndLocation(), error=True,
                                errormessage="Error: {}".format(e), success=False)
 
